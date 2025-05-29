@@ -3,27 +3,48 @@ from streamlit_folium import st_folium
 import folium
 import pandas as pd
 import base64
-import os
+import gspread
+from google.oauth2.service_account import Credentials
 
 st.set_page_config(page_title="Graffiti Reporter", layout="wide")
 st.markdown("<h1 style='margin-bottom: 0.5rem;'>🚨 Graffiti Reporter - Silver Spring, MD</h1>", unsafe_allow_html=True)
 
-# DataFrame column setup
+# === Constants ===
 required_columns = [
-    "reporter", "location", "location_desc", "notes", "status", 
+    "reporter", "location", "location_desc", "notes", "status",
     "lat", "lng", "remover", "before_image", "after_image"
 ]
 
-# Load from session state or create new data
-if "data" not in st.session_state:
-    st.session_state["data"] = pd.DataFrame(columns=required_columns)
+# === Google Sheets Setup ===
+def load_sheet():
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    credentials = Credentials.from_service_account_info(st.secrets["gspread"], scopes=scopes)
+    gc = gspread.authorize(credentials)
+    sheet = gc.open_by_url(st.secrets["sheets"]["sheet_url"]).sheet1
+    return sheet
 
+def load_data(sheet):
+    raw = sheet.get_all_records()
+    df = pd.DataFrame(raw)
+    for col in required_columns:
+        if col not in df.columns:
+            df[col] = "" if col in ["reporter", "location", "location_desc", "notes", "status", "remover", "before_image", "after_image"] else 0.0
+    return df
+
+def save_data(sheet, df):
+    sheet.clear()
+    sheet.update([df.columns.values.tolist()] + df.values.tolist())
+
+# === Load and sync data ===
+sheet = load_sheet()
+if "data" not in st.session_state:
+    st.session_state["data"] = load_data(sheet)
 data = st.session_state["data"]
 
 if "selected_index" not in st.session_state:
     st.session_state["selected_index"] = None
 
-# Sidebar summary
+# === Sidebar ===
 with st.sidebar:
     st.markdown("### 📊 Report Summary")
     st.write(f"**Total Reports:** {len(data)}")
@@ -32,7 +53,7 @@ with st.sidebar:
     else:
         st.info("No reports yet.")
 
-# Map display
+# === Map ===
 st.markdown("### 🗺️ Map of All Graffiti Reports")
 m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
 
@@ -47,7 +68,6 @@ for i, row in data.iterrows():
 
 map_data = st_folium(m, height=500, width=700)
 
-# Detect pin click
 if map_data and map_data.get("last_clicked"):
     clicked_lat = round(map_data["last_clicked"]["lat"], 5)
     clicked_lng = round(map_data["last_clicked"]["lng"], 5)
@@ -56,7 +76,7 @@ if map_data and map_data.get("last_clicked"):
         st.session_state["selected_index"] = match.index[0]
         st.success(f"📌 Selected report #{match.index[0]} from the map.")
 
-# New graffiti report
+# === New Report ===
 st.markdown("---")
 st.markdown("### ➕ Report New Graffiti")
 
@@ -65,7 +85,6 @@ location_desc = st.text_input("📍 Location Description")
 notes = st.text_area("📝 Describe the graffiti")
 before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"])
 
-# Get map click for lat/lng
 click = map_data.get("last_clicked") if map_data else None
 if click:
     lat = click["lat"]
@@ -76,17 +95,13 @@ else:
     lat = lng = location = None
     st.warning("Click a location on the map to report graffiti.")
 
-# Handle submission
 if st.button("🚀 Submit Report"):
     if not reporter.strip():
         st.error("Reporter name is required.")
     elif not click:
         st.error("You must select a location on the map.")
     else:
-        before_image_b64 = ""
-        if before_photo:
-            before_image_b64 = base64.b64encode(before_photo.read()).decode("utf-8")
-
+        before_b64 = base64.b64encode(before_photo.read()).decode("utf-8") if before_photo else ""
         new_row = pd.DataFrame([{
             "reporter": reporter.strip(),
             "location": location,
@@ -96,53 +111,52 @@ if st.button("🚀 Submit Report"):
             "lat": lat,
             "lng": lng,
             "remover": "",
-            "before_image": before_image_b64,
+            "before_image": before_b64,
             "after_image": ""
         }])
         data = pd.concat([data, new_row], ignore_index=True)
         st.session_state["data"] = data
+        save_data(sheet, data)
         st.success("✅ Report submitted!")
 
-# Update Section
+# === Update Section ===
 st.markdown("---")
 st.markdown("### 🛠️ Update or Remove a Report")
 
-active_reports = data[data["status"] == "Reported"]
-
+active = data[data["status"] == "Reported"]
 def make_label(row, idx):
     return f"Report #{idx} | \"{row['location_desc']}\" | Location: {row['location']}"
 
-dropdown_options = [make_label(row, i) for i, row in active_reports.iterrows()]
-active_indices = list(active_reports.index)
+options = [make_label(row, i) for i, row in active.iterrows()]
+indices = list(active.index)
+default_index = indices.index(st.session_state["selected_index"]) if st.session_state["selected_index"] in indices else 0 if indices else 0
 
-default_index = (active_indices.index(st.session_state["selected_index"])
-                 if st.session_state["selected_index"] in active_indices else 0) if active_indices else 0
-
-if active_reports.empty:
+if active.empty:
     st.info("No active reports to update.")
 else:
-    selected_option = st.selectbox("Select a report to update:", dropdown_options, index=default_index)
-    selected_index = int(selected_option.split('#')[1].split('|')[0].strip())
+    selected = st.selectbox("Select a report to update:", options, index=default_index)
+    selected_index = int(selected.split('#')[1].split('|')[0].strip())
     new_status = st.selectbox("Set new status:", ["Reported", "Removed"], index=0)
 
-    remover_name = ""
-    after_image_b64 = ""
+    remover = ""
+    after_b64 = ""
     if new_status == "Removed":
-        remover_name = st.text_input("🧹 Remover's Name (Optional)", value=data.at[selected_index, "remover"])
+        remover = st.text_input("🧹 Remover's Name (Optional)", value=data.at[selected_index, "remover"])
         after_photo = st.file_uploader("📷 Upload 'After' Photo (Optional)", type=["jpg", "jpeg", "png"])
         if after_photo:
-            after_image_b64 = base64.b64encode(after_photo.read()).decode("utf-8")
+            after_b64 = base64.b64encode(after_photo.read()).decode("utf-8")
 
     if st.button("🔄 Update Status"):
         data.at[selected_index, "status"] = new_status
-        data.at[selected_index, "remover"] = remover_name.strip() if new_status == "Removed" else ""
-        if after_image_b64:
-            data.at[selected_index, "after_image"] = after_image_b64
+        data.at[selected_index, "remover"] = remover.strip() if new_status == "Removed" else ""
+        if after_b64:
+            data.at[selected_index, "after_image"] = after_b64
         st.session_state["data"] = data
+        save_data(sheet, data)
         st.session_state["selected_index"] = None
         st.success("✅ Status updated.")
 
-# Final report viewer
+# === Report Viewer with Images ===
 st.markdown("---")
 st.markdown("### 📋 All Graffiti Reports (History)")
 
