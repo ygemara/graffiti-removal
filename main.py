@@ -1,3 +1,4 @@
+
 import streamlit as st
 from streamlit_folium import st_folium
 import folium
@@ -54,75 +55,75 @@ data = st.session_state["data"]
 if "selected_index" not in st.session_state:
     st.session_state["selected_index"] = None
 
-# === Map + Form Layout ===
+# === Map and Form vertically stacked ===
 st.markdown("### 🗺️ Map and Report Form")
-col1, col2 = st.columns([2, 3])  # map | form
 
-with col1:
-    m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
-    for i, row in data.iterrows():
-        color = "green" if row["status"] == "Removed" else "red"
-        folium.Marker(
-            location=[row["lat"], row["lng"]],
-            tooltip=f"{row['location_desc']} ({row['status']}) by {row['reporter']}",
-            popup=folium.Popup(f"<b>Report #{i}</b><br>{row['notes']}<br><i>{row['location_desc']}</i>", max_width=300),
-            icon=folium.Icon(color=color)
-        ).add_to(m)
-    map_data = st_folium(m, height=400, width="100%")
+map_height = 350
+m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
+for i, row in data.iterrows():
+    color = "green" if row["status"] == "Removed" else "red"
+    folium.Marker(
+        location=[row["lat"], row["lng"]],
+        tooltip=f"{row['location_desc']} ({row['status']}) by {row['reporter']}",
+        popup=folium.Popup(f"<b>Report #{i}</b><br>{row['notes']}<br><i>{row['location_desc']}</i>", max_width=300),
+        icon=folium.Icon(color=color)
+    ).add_to(m)
 
-    click = map_data.get("last_clicked") if map_data else None
-    if click:
-        lat, lng = click["lat"], click["lng"]
-        location = f"{lat:.5f}, {lng:.5f}"
-        st.markdown(f"""
-        <div style='background-color:#e8f5e9;padding:12px;border-radius:6px;border:1px solid #c8e6c9'>
-        <strong>📍 Location Selected:</strong><br>
-        <code>{location}</code>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        lat = lng = location = None
+map_data = st_folium(m, height=map_height, width="100%")
 
-    if map_data and map_data.get("last_clicked"):
-        clicked_lat = round(map_data["last_clicked"]["lat"], 5)
-        clicked_lng = round(map_data["last_clicked"]["lng"], 5)
-        match = data[(data["lat"].round(5) == clicked_lat) & (data["lng"].round(5) == clicked_lng)]
-        if not match.empty:
-            st.session_state["selected_index"] = match.index[0]
-            st.success(f"📌 Selected report #{match.index[0]} from the map.")
+click = map_data.get("last_clicked") if map_data else None
+if click:
+    lat, lng = click["lat"], click["lng"]
+    location = f"{lat:.5f}, {lng:.5f}"
+    st.markdown(f"""
+    <div style='background-color:#e8f5e9;padding:12px;border-radius:6px;border:1px solid #c8e6c9'>
+    <strong>📍 Location Selected:</strong><br>
+    <code>{location}</code>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    lat = lng = location = None
 
-with col2:
-    st.markdown("### ➕ Report New Graffiti")
-    with st.form("report_form", clear_on_submit=True):
-        reporter = st.text_input("🧑 Your Name (Required)")
-        location_desc = st.text_input("📍 Location Description")
-        notes = st.text_area("📝 Describe the graffiti")
-        before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"])
-        submit = st.form_submit_button("🚀 Submit Report")
+if map_data and map_data.get("last_clicked"):
+    clicked_lat = round(map_data["last_clicked"]["lat"], 5)
+    clicked_lng = round(map_data["last_clicked"]["lng"], 5)
+    match = data[(data["lat"].round(5) == clicked_lat) & (data["lng"].round(5) == clicked_lng)]
+    if not match.empty:
+        st.session_state["selected_index"] = match.index[0]
+        st.success(f"📌 Selected report #{match.index[0]} from the map.")
 
-        if submit:
-            if not reporter.strip():
-                st.error("Reporter name is required.")
-            elif not click:
-                st.error("You must select a location on the map.")
-            else:
-                before_b64 = base64.b64encode(before_photo.read()).decode("utf-8") if before_photo else ""
-                new_row = pd.DataFrame([{
-                    "reporter": reporter.strip(),
-                    "location": location,
-                    "location_desc": location_desc.strip(),
-                    "notes": notes.strip(),
-                    "status": "Reported",
-                    "lat": lat,
-                    "lng": lng,
-                    "remover": "",
-                    "before_image": before_b64,
-                    "after_image": ""
-                }])
-                data = pd.concat([data, new_row], ignore_index=True)
-                st.session_state["data"] = data
-                save_data(sheet, data)
-                st.success("✅ Report submitted!")
+# === Report Form ===
+st.markdown("### ➕ Report New Graffiti")
+with st.form("report_form", clear_on_submit=True):
+    reporter = st.text_input("🧑 Your Name (Required)", key="rep_name")
+    location_desc = st.text_input("📍 Location Description", key="loc_desc")
+    notes = st.text_area("📝 Describe the graffiti", key="notes_field")
+    before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"], key="before_upload")
+    submit = st.form_submit_button("🚀 Submit Report")
+
+    if submit:
+        if not reporter.strip():
+            st.error("Reporter name is required.")
+        elif not click:
+            st.error("You must select a location on the map.")
+        else:
+            before_b64 = base64.b64encode(before_photo.read()).decode("utf-8") if before_photo else ""
+            new_row = pd.DataFrame([{
+                "reporter": reporter.strip(),
+                "location": location,
+                "location_desc": location_desc.strip(),
+                "notes": notes.strip(),
+                "status": "Reported",
+                "lat": lat,
+                "lng": lng,
+                "remover": "",
+                "before_image": before_b64,
+                "after_image": ""
+            }])
+            data = pd.concat([data, new_row], ignore_index=True)
+            st.session_state["data"] = data
+            save_data(sheet, data)
+            st.success("✅ Report submitted!")
 
 # === Update Section ===
 st.markdown("---")
@@ -130,7 +131,7 @@ st.markdown("### 🛠️ Update or Remove a Report")
 
 active = data[data["status"] == "Reported"]
 def make_label(row, idx):
-    return f"Report #{idx} | \"{row['location_desc']}\" | Location: {row['location']}"
+    return f"Report #{idx} | "{row['location_desc']}" | Location: {row['location']}"
 
 options = [make_label(row, i) for i, row in active.iterrows()]
 indices = list(active.index)
@@ -139,59 +140,19 @@ default_index = indices.index(st.session_state["selected_index"]) if st.session_
 if active.empty:
     st.info("No active reports to update.")
 else:
-    selected = st.selectbox(
-    "Select a report to update:", options, index=default_index, key="update_select"
-    )
-    new_status = st.selectbox(
-        "Set new status:", ["Reported", "Removed"], index=0, key="status_select"
-    )
-
-    remover = ""
-    after_b64 = ""
-    if new_status == "Removed":
-        remover = st.text_input("🧹 Remover's Name (Optional)", value=data.at[selected_index, "remover"])
-        after_photo = st.file_uploader("📷 Upload 'After' Photo (Optional)", type=["jpg", "jpeg", "png"])
-        if after_photo:
-            after_b64 = base64.b64encode(after_photo.read()).decode("utf-8")
-
-    if st.button("🔄 Update Status"):
-        data.at[selected_index, "status"] = new_status
-        data.at[selected_index, "remover"] = remover.strip() if new_status == "Removed" else ""
-        if after_b64:
-            data.at[selected_index, "after_image"] = after_b64
-        st.session_state["data"] = data
-        save_data(sheet, data)
-        st.session_state["selected_index"] = None
-        st.success("✅ Status updated.")
-
-# === Update Section ===
-st.markdown("---")
-st.markdown("### 🛠️ Update or Remove a Report")
-
-active = data[data["status"] == "Reported"]
-def make_label(row, idx):
-    return f"Report #{idx} | \"{row['location_desc']}\" | Location: {row['location']}"
-
-options = [make_label(row, i) for i, row in active.iterrows()]
-indices = list(active.index)
-default_index = indices.index(st.session_state["selected_index"]) if st.session_state["selected_index"] in indices else 0 if indices else 0
-
-if active.empty:
-    st.info("No active reports to update.")
-else:
-    selected = st.selectbox("Select a report to update:", options, index=default_index)
+    selected = st.selectbox("Select a report to update:", options, index=default_index, key="update_select")
     selected_index = int(selected.split('#')[1].split('|')[0].strip())
-    new_status = st.selectbox("Set new status:", ["Reported", "Removed"], index=0)
+    new_status = st.selectbox("Set new status:", ["Reported", "Removed"], index=0, key="status_select")
 
     remover = ""
     after_b64 = ""
     if new_status == "Removed":
-        remover = st.text_input("🧹 Remover's Name (Optional)", value=data.at[selected_index, "remover"])
-        after_photo = st.file_uploader("📷 Upload 'After' Photo (Optional)", type=["jpg", "jpeg", "png"])
+        remover = st.text_input("🧹 Remover's Name (Optional)", value=data.at[selected_index, "remover"], key="remover_input")
+        after_photo = st.file_uploader("📷 Upload 'After' Photo (Optional)", type=["jpg", "jpeg", "png"], key="after_upload")
         if after_photo:
             after_b64 = base64.b64encode(after_photo.read()).decode("utf-8")
 
-    if st.button("🔄 Update Status"):
+    if st.button("🔄 Update Status", key="update_button"):
         data.at[selected_index, "status"] = new_status
         data.at[selected_index, "remover"] = remover.strip() if new_status == "Removed" else ""
         if after_b64:
