@@ -1,3 +1,4 @@
+# [existing imports...]
 import streamlit as st
 from streamlit_folium import st_folium
 import folium
@@ -6,16 +7,15 @@ import base64
 import gspread
 from google.oauth2.service_account import Credentials
 
+# === Setup ===
 st.set_page_config(page_title="Graffiti Reporter", layout="wide")
 st.markdown("<h1 style='margin-bottom: 0.5rem;'>🚨 Graffiti Reporter - Silver Spring, MD</h1>", unsafe_allow_html=True)
 
-# === Constants ===
 required_columns = [
     "reporter", "location", "location_desc", "notes", "status",
     "lat", "lng", "remover", "before_image", "after_image"
 ]
 
-# === Google Sheets Setup ===
 def load_sheet():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     credentials = Credentials.from_service_account_info(st.secrets["gspread"], scopes=scopes)
@@ -35,7 +35,7 @@ def save_data(sheet, df):
     sheet.clear()
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
-# === Load and sync data ===
+# === Data Load ===
 sheet = load_sheet()
 if "data" not in st.session_state:
     st.session_state["data"] = load_data(sheet)
@@ -44,19 +44,18 @@ data = st.session_state["data"]
 if "selected_index" not in st.session_state:
     st.session_state["selected_index"] = None
 
-# === Sidebar ===
+# === Sidebar: Report Inputs ===
 with st.sidebar:
-    st.markdown("### 📊 Report Summary")
-    st.write(f"**Total Reports:** {len(data)}")
-    if not data.empty:
-        st.bar_chart(data["status"].value_counts())
-    else:
-        st.info("No reports yet.")
+    st.markdown("### ➕ Report New Graffiti")
+    reporter = st.text_input("🧑 Your Name (Required)")
+    location_desc = st.text_input("📍 Location Description")
+    notes = st.text_area("📝 Describe the graffiti")
+    before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"])
+    submit = st.button("🚀 Submit Report")
 
 # === Map ===
 st.markdown("### 🗺️ Map of All Graffiti Reports")
 m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
-
 for i, row in data.iterrows():
     color = "green" if row["status"] == "Removed" else "red"
     folium.Marker(
@@ -76,31 +75,16 @@ if map_data and map_data.get("last_clicked"):
         st.session_state["selected_index"] = match.index[0]
         st.success(f"📌 Selected report #{match.index[0]} from the map.")
 
-# === New Report ===
-st.markdown("---")
-st.markdown("### ➕ Report New Graffiti")
-
-reporter = st.text_input("🧑 Your Name (Required)")
-location_desc = st.text_input("📍 Location Description")
-notes = st.text_area("📝 Describe the graffiti")
-before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"])
-
+# === Handle Report Submission ===
 click = map_data.get("last_clicked") if map_data else None
-if click:
-    lat = click["lat"]
-    lng = click["lng"]
-    location = f"{lat:.5f}, {lng:.5f}"
-    st.info(f"Selected location: {location}")
-else:
-    lat = lng = location = None
-    st.warning("Click a location on the map to report graffiti.")
-
-if st.button("🚀 Submit Report"):
+if submit:
     if not reporter.strip():
         st.error("Reporter name is required.")
     elif not click:
         st.error("You must select a location on the map.")
     else:
+        lat, lng = click["lat"], click["lng"]
+        location = f"{lat:.5f}, {lng:.5f}"
         before_b64 = base64.b64encode(before_photo.read()).decode("utf-8") if before_photo else ""
         new_row = pd.DataFrame([{
             "reporter": reporter.strip(),
@@ -156,7 +140,7 @@ else:
         st.session_state["selected_index"] = None
         st.success("✅ Status updated.")
 
-# === Report Viewer with Images ===
+# === Report Table with Images ===
 st.markdown("---")
 st.markdown("### 📋 All Graffiti Reports (History)")
 
@@ -170,3 +154,11 @@ if not data.empty:
             cols[2].image(base64.b64decode(row["after_image"]), caption="After", width=150)
 else:
     st.info("No reports yet.")
+
+# === Stats moved below ===
+st.markdown("---")
+st.markdown("### 📈 Status Breakdown")
+if not data.empty:
+    st.bar_chart(data["status"].value_counts())
+else:
+    st.info("No data available yet.")
