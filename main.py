@@ -68,6 +68,14 @@ for i, row in data.iterrows():
 
 map_data = st_folium(m, height=400, width="100%")
 
+st.markdown("""
+<style>
+.block-container > div:nth-child(3) {
+    margin-top: -2rem;
+}
+</style>
+""", unsafe_allow_html=True)
+
 click = map_data.get("last_clicked") if map_data else None
 if click:
     lat, lng = click["lat"], click["lng"]
