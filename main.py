@@ -17,23 +17,22 @@ st.markdown("""
         padding-right: 0.5rem;
     }
     
-    /* Target the streamlit-folium component container */
-    div[data-testid="stApp"] > div > div > div > div:has(iframe[title*="streamlit_folium"]) {
-        height: 300px !important;
-        max-height: 300px !important;
-        overflow: hidden !important;
+    /* Hide the empty second map div that's causing the space */
+    #map_div2 {
+        display: none !important;
+        height: 0 !important;
     }
     
-    /* Target the iframe directly */
-    iframe[title*="streamlit_folium"] {
-        height: 300px !important;
-        max-height: 300px !important;
+    /* Also target the parent float-child container */
+    .float-child:has(#map_div2) {
+        display: none !important;
+        height: 0 !important;
     }
     
-    /* Target parent div of folium */
-    .stApp div:has(> iframe[title*="streamlit_folium"]) {
-        height: 300px !important;
-        min-height: auto !important;
+    /* Alternative: target all empty map divs */
+    div[id^="map_div"]:empty {
+        display: none !important;
+        height: 0 !important;
     }
 }
 </style>
