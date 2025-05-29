@@ -139,9 +139,12 @@ default_index = indices.index(st.session_state["selected_index"]) if st.session_
 if active.empty:
     st.info("No active reports to update.")
 else:
-    selected = st.selectbox("Select a report to update:", options, index=default_index, key="update_select")
-    selected_index = int(selected.split('#')[1].split('|')[0].strip())
-    new_status = st.selectbox("Set new status:", ["Reported", "Removed"], index=0)
+    selected = st.selectbox(
+    "Select a report to update:", options, index=default_index, key="update_select"
+    )
+    new_status = st.selectbox(
+        "Set new status:", ["Reported", "Removed"], index=0, key="status_select"
+    )
 
     remover = ""
     after_b64 = ""
