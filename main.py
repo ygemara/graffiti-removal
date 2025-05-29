@@ -131,7 +131,7 @@ st.markdown("### 🛠️ Update or Remove a Report")
 
 active = data[data["status"] == "Reported"]
 def make_label(row, idx):
-    return f"Report #{idx} | "{row['location_desc']}" | Location: {row['location']}"
+    return f"Report #{idx} | \"{row['location_desc']}\" | Location: {row['location']}"
 
 options = [make_label(row, i) for i, row in active.iterrows()]
 indices = list(active.index)
