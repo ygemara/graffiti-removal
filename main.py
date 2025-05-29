@@ -1,4 +1,3 @@
-# [existing imports...]
 import streamlit as st
 from streamlit_folium import st_folium
 import folium
@@ -7,10 +6,21 @@ import base64
 import gspread
 from google.oauth2.service_account import Credentials
 
-# === Setup ===
+# === Mobile-First Styling ===
 st.set_page_config(page_title="Graffiti Reporter", layout="wide")
+st.markdown("""
+<style>
+@media (max-width: 768px) {
+    .main .block-container {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+</style>
+""", unsafe_allow_html=True)
 st.markdown("<h1 style='margin-bottom: 0.5rem;'>🚨 Graffiti Reporter - Silver Spring, MD</h1>", unsafe_allow_html=True)
 
+# === Sheet Setup ===
 required_columns = [
     "reporter", "location", "location_desc", "notes", "status",
     "lat", "lng", "remover", "before_image", "after_image"
@@ -47,7 +57,7 @@ for key in ["reporter", "location_desc", "notes"]:
     if key not in st.session_state:
         st.session_state[key] = ""
 
-# === Sidebar: Report Inputs ===
+# === Sidebar Form Inputs ===
 with st.sidebar:
     st.markdown("### ➕ Report New Graffiti")
     reporter = st.text_input("🧑 Your Name (Required)", key="reporter")
@@ -68,7 +78,7 @@ for i, row in data.iterrows():
         icon=folium.Icon(color=color)
     ).add_to(m)
 
-map_data = st_folium(m, height=500, width=700)
+map_data = st_folium(m, height=400, width="100%")
 
 if map_data and map_data.get("last_clicked"):
     clicked_lat = round(map_data["last_clicked"]["lat"], 5)
@@ -78,7 +88,7 @@ if map_data and map_data.get("last_clicked"):
         st.session_state["selected_index"] = match.index[0]
         st.success(f"📌 Selected report #{match.index[0]} from the map.")
 
-# === Handle Report Submission ===
+# === Click Feedback ===
 click = map_data.get("last_clicked") if map_data else None
 if click:
     lat, lng = click["lat"], click["lng"]
@@ -92,6 +102,7 @@ if click:
 else:
     lat = lng = location = None
 
+# === Handle Submission ===
 if submit:
     if not reporter.strip():
         st.error("Reporter name is required.")
@@ -156,24 +167,26 @@ else:
         st.session_state["selected_index"] = None
         st.success("✅ Status updated.")
 
-# === Report Table with Images ===
+# === History Section ===
 st.markdown("---")
 st.markdown("### 📋 All Graffiti Reports (History)")
 
 if not data.empty:
     for i, row in data.iterrows():
-        cols = st.columns([2, 3, 1])
-        cols[0].markdown(f"**{row['reporter']}**  \n*{row['location_desc']}*\n\nStatus: `{row['status']}`")
-        if row["before_image"]:
-            cols[1].image(base64.b64decode(row["before_image"]), caption="Before", width=150)
-        if row["after_image"]:
-            cols[2].image(base64.b64decode(row["after_image"]), caption="After", width=150)
+        with st.container():
+            st.markdown(f"**{row['reporter']}** — *{row['location_desc']}*")
+            st.markdown(f"Status: `{row['status']}`  |  Location: {row['location']}")
+            if row["before_image"]:
+                st.image(base64.b64decode(row["before_image"]), caption="Before", use_column_width=True)
+            if row["after_image"]:
+                st.image(base64.b64decode(row["after_image"]), caption="After", use_column_width=True)
 else:
     st.info("No reports yet.")
 
-# === Stats moved below ===
+# === Stats Section ===
 st.markdown("---")
 st.markdown("### 📈 Status Breakdown")
+
 if not data.empty:
     st.bar_chart(data["status"].value_counts())
 else:
