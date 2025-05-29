@@ -7,7 +7,7 @@ import base64
 import gspread
 from google.oauth2.service_account import Credentials
 
-# === Styling and Layout ===
+# === Page Config and Styling ===
 st.set_page_config(page_title="Graffiti Reporter", layout="wide")
 st.markdown("""
 <style>
@@ -21,7 +21,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.markdown("<h1 style='margin-bottom: 0.5rem;'>🚨 Graffiti Reporter - Silver Spring, MD</h1>", unsafe_allow_html=True)
 
-# === Setup ===
+# === Google Sheets Setup ===
 required_columns = [
     "reporter", "location", "location_desc", "notes", "status",
     "lat", "lng", "remover", "before_image", "after_image"
@@ -46,7 +46,6 @@ def save_data(sheet, df):
     sheet.clear()
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
-# === Data Load ===
 sheet = load_sheet()
 if "data" not in st.session_state:
     st.session_state["data"] = load_data(sheet)
@@ -55,8 +54,17 @@ data = st.session_state["data"]
 if "selected_index" not in st.session_state:
     st.session_state["selected_index"] = None
 
-# === Map and Form vertically stacked ===
-st.markdown("### 🗺️ Map and Report Form")
+# === 1. Submission Form ===
+st.markdown("### ➕ Report New Graffiti")
+with st.form("report_form", clear_on_submit=True):
+    reporter = st.text_input("🧑 Your Name (Required)", key="rep_name")
+    location_desc = st.text_input("📍 Location Description", key="loc_desc")
+    notes = st.text_area("📝 Describe the graffiti", key="notes_field")
+    before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"], key="before_upload")
+    submit = st.form_submit_button("🚀 Submit Report")
+
+# === 2. Map ===
+st.markdown("### 🗺️ Graffiti Location Map")
 
 map_height = 350
 m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
@@ -70,8 +78,8 @@ for i, row in data.iterrows():
     ).add_to(m)
 
 map_data = st_folium(m, height=map_height, width="100%")
-
 click = map_data.get("last_clicked") if map_data else None
+
 if click:
     lat, lng = click["lat"], click["lng"]
     location = f"{lat:.5f}, {lng:.5f}"
@@ -84,54 +92,39 @@ if click:
 else:
     lat = lng = location = None
 
-if map_data and map_data.get("last_clicked"):
-    clicked_lat = round(map_data["last_clicked"]["lat"], 5)
-    clicked_lng = round(map_data["last_clicked"]["lng"], 5)
-    match = data[(data["lat"].round(5) == clicked_lat) & (data["lng"].round(5) == clicked_lng)]
-    if not match.empty:
-        st.session_state["selected_index"] = match.index[0]
-        st.success(f"📌 Selected report #{match.index[0]} from the map.")
+if submit:
+    if not reporter.strip():
+        st.error("Reporter name is required.")
+    elif not click:
+        st.error("You must select a location on the map.")
+    else:
+        before_b64 = base64.b64encode(before_photo.read()).decode("utf-8") if before_photo else ""
+        new_row = pd.DataFrame([{
+            "reporter": reporter.strip(),
+            "location": location,
+            "location_desc": location_desc.strip(),
+            "notes": notes.strip(),
+            "status": "Reported",
+            "lat": lat,
+            "lng": lng,
+            "remover": "",
+            "before_image": before_b64,
+            "after_image": ""
+        }])
+        data = pd.concat([data, new_row], ignore_index=True)
+        st.session_state["data"] = data
+        save_data(sheet, data)
+        st.success("✅ Report submitted!")
 
-# === Report Form ===
-st.markdown("### ➕ Report New Graffiti")
-with st.form("report_form", clear_on_submit=True):
-    reporter = st.text_input("🧑 Your Name (Required)", key="rep_name")
-    location_desc = st.text_input("📍 Location Description", key="loc_desc")
-    notes = st.text_area("📝 Describe the graffiti", key="notes_field")
-    before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"], key="before_upload")
-    submit = st.form_submit_button("🚀 Submit Report")
+# We'll continue this below
 
-    if submit:
-        if not reporter.strip():
-            st.error("Reporter name is required.")
-        elif not click:
-            st.error("You must select a location on the map.")
-        else:
-            before_b64 = base64.b64encode(before_photo.read()).decode("utf-8") if before_photo else ""
-            new_row = pd.DataFrame([{
-                "reporter": reporter.strip(),
-                "location": location,
-                "location_desc": location_desc.strip(),
-                "notes": notes.strip(),
-                "status": "Reported",
-                "lat": lat,
-                "lng": lng,
-                "remover": "",
-                "before_image": before_b64,
-                "after_image": ""
-            }])
-            data = pd.concat([data, new_row], ignore_index=True)
-            st.session_state["data"] = data
-            save_data(sheet, data)
-            st.success("✅ Report submitted!")
-
-# === Update Section ===
+# === 3. Update Section ===
 st.markdown("---")
 st.markdown("### 🛠️ Update or Remove a Report")
 
 active = data[data["status"] == "Reported"]
 def make_label(row, idx):
-    return f"Report #{idx} | \"{row['location_desc']}\" | Location: {row['location']}"
+    return f"Report #{idx} | '{row['location_desc']}' | Location: {row['location']}"
 
 options = [make_label(row, i) for i, row in active.iterrows()]
 indices = list(active.index)
@@ -162,7 +155,7 @@ else:
         st.session_state["selected_index"] = None
         st.success("✅ Status updated.")
 
-# === History and Stats ===
+# === 4. Report History and Charts ===
 st.markdown("---")
 st.markdown("### 📋 All Graffiti Reports (History)")
 
