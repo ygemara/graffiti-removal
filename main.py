@@ -17,22 +17,21 @@ st.markdown("""
         padding-right: 0.5rem;
     }
     
-    /* Hide the empty second map div that's causing the space */
-    #map_div2 {
-        display: none !important;
-        height: 0 !important;
+    /* Target the float-container and limit to one child */
+    .float-container.single {
+        height: 200px !important;
+        overflow: hidden !important;
     }
     
-    /* Also target the parent float-child container */
-    .float-child:has(#map_div2) {
+    /* Hide all float-child divs except the first one */
+    .float-container.single .float-child:nth-child(2) {
         display: none !important;
-        height: 0 !important;
     }
     
-    /* Alternative: target all empty map divs */
-    div[id^="map_div"]:empty {
-        display: none !important;
-        height: 0 !important;
+    /* Force the container height */
+    .float-container.single .float-child:first-child {
+        height: 200px !important;
+        max-height: 200px !important;
     }
 }
 </style>
