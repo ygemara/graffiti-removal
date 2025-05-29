@@ -77,7 +77,7 @@ for i, row in data.iterrows():
         icon=folium.Icon(color=color)
     ).add_to(m)
 
-map_data = st_folium(m, height=map_height, width="100%", returned_objects=["last_clicked"])
+map_data = st_folium(m, width="100%", returned_objects=["last_clicked"])
 click = map_data.get("last_clicked") if map_data and map_data.get("last_clicked") else None
 
 if click:
