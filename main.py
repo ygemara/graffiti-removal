@@ -16,6 +16,25 @@ st.markdown("""
         padding-left: 0.5rem;
         padding-right: 0.5rem;
     }
+    
+    /* Target the streamlit-folium component container */
+    div[data-testid="stApp"] > div > div > div > div:has(iframe[title*="streamlit_folium"]) {
+        height: 300px !important;
+        max-height: 300px !important;
+        overflow: hidden !important;
+    }
+    
+    /* Target the iframe directly */
+    iframe[title*="streamlit_folium"] {
+        height: 300px !important;
+        max-height: 300px !important;
+    }
+    
+    /* Target parent div of folium */
+    .stApp div:has(> iframe[title*="streamlit_folium"]) {
+        height: 300px !important;
+        min-height: auto !important;
+    }
 }
 </style>
 """, unsafe_allow_html=True)
