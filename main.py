@@ -66,7 +66,7 @@ with st.form("report_form", clear_on_submit=True):
 # === 2. Map ===
 st.markdown("### 🗺️ Graffiti Location Map")
 
-map_height = 50
+#map_height = 350
 m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
 for i, row in data.iterrows():
     color = "green" if row["status"] == "Removed" else "red"
