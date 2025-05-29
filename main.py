@@ -82,23 +82,70 @@ with st.form("report_form", clear_on_submit=True):
     before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"], key="before_upload")
     submit = st.form_submit_button("🚀 Submit Report")
 
+
 # === 2. Map ===
 st.markdown("### 🗺️ Graffiti Location Map")
 
-#map_height = 350
-m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
-for i, row in data.iterrows():
-    color = "green" if row["status"] == "Removed" else "red"
-    folium.Marker(
-        location=[row["lat"], row["lng"]],
-        tooltip=f"{row['location_desc']} ({row['status']}) by {row['reporter']}",
-        popup=folium.Popup(f"<b>Report #{i}</b><br>{row['notes']}<br><i>{row['location_desc']}</i>", max_width=300),
-        icon=folium.Icon(color=color)
-    ).add_to(m)
+# Mobile detection and map choice
+use_simple_map = st.checkbox("📱 Use mobile-friendly map", help="Check this if you're on mobile and experiencing display issues")
 
-map_data = st_folium(m, width="100%", returned_objects=["last_clicked"])
-click = map_data.get("last_clicked") if map_data and map_data.get("last_clicked") else None
+if use_simple_map:
+    # Simple Streamlit map for mobile
+    st.info("👆 Tap on the map below to select a location, then scroll down to the green box to see coordinates")
+    
+    if not data.empty:
+        # Show existing points
+        map_df = data[data['lat'] != 0][['lat', 'lng']].copy()
+        if not map_df.empty:
+            st.map(map_df)
+        else:
+            # Default center on Silver Spring
+            default_df = pd.DataFrame({'lat': [38.9907], 'lng': [-77.0261]})
+            st.map(default_df)
+    else:
+        # Default center on Silver Spring
+        default_df = pd.DataFrame({'lat': [38.9907], 'lng': [-77.0261]})
+        st.map(default_df)
+    
+    # Manual coordinate input for mobile
+    st.markdown("**📍 Enter coordinates manually:**")
+    col1, col2 = st.columns(2)
+    with col1:
+        manual_lat = st.number_input("Latitude", value=38.9907, format="%.5f", key="manual_lat")
+    with col2:
+        manual_lng = st.number_input("Longitude", value=-77.0261, format="%.5f", key="manual_lng")
+    
+    if st.button("📍 Use These Coordinates"):
+        lat, lng = manual_lat, manual_lng
+        location = f"{lat:.5f}, {lng:.5f}"
+        click = {"lat": lat, "lng": lng}  # Simulate click
+        st.session_state['selected_location'] = location
+        st.session_state['selected_coords'] = (lat, lng)
+    else:
+        click = None
+        lat = lng = location = None
+        if 'selected_location' in st.session_state:
+            location = st.session_state['selected_location']
+            lat, lng = st.session_state['selected_coords']
+            click = {"lat": lat, "lng": lng}
 
+else:
+    # Original folium map with reduced height
+    m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
+    for i, row in data.iterrows():
+        color = "green" if row["status"] == "Removed" else "red"
+        folium.Marker(
+            location=[row["lat"], row["lng"]],
+            tooltip=f"{row['location_desc']} ({row['status']}) by {row['reporter']}",
+            popup=folium.Popup(f"<b>Report #{i}</b><br>{row['notes']}<br><i>{row['location_desc']}</i>", max_width=300),
+            icon=folium.Icon(color=color)
+        ).add_to(m)
+
+    # Use a very small height to minimize mobile issues
+    map_data = st_folium(m, height=200, width="100%", returned_objects=["last_clicked"])
+    click = map_data.get("last_clicked") if map_data and map_data.get("last_clicked") else None
+
+# Handle the selected location display
 if click:
     lat, lng = click["lat"], click["lng"]
     location = f"{lat:.5f}, {lng:.5f}"
