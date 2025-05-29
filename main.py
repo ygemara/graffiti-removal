@@ -43,14 +43,17 @@ data = st.session_state["data"]
 
 if "selected_index" not in st.session_state:
     st.session_state["selected_index"] = None
+for key in ["reporter", "location_desc", "notes"]:
+    if key not in st.session_state:
+        st.session_state[key] = ""
 
 # === Sidebar: Report Inputs ===
 with st.sidebar:
     st.markdown("### ➕ Report New Graffiti")
-    reporter = st.text_input("🧑 Your Name (Required)")
-    location_desc = st.text_input("📍 Location Description")
-    notes = st.text_area("📝 Describe the graffiti")
-    before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"])
+    reporter = st.text_input("🧑 Your Name (Required)", key="reporter")
+    location_desc = st.text_input("📍 Location Description", key="location_desc")
+    notes = st.text_area("📝 Describe the graffiti", key="notes")
+    before_photo = st.file_uploader("📷 Upload 'Before' Photo (Optional)", type=["jpg", "jpeg", "png"], key="before_photo")
     submit = st.button("🚀 Submit Report")
 
 # === Map ===
@@ -77,14 +80,24 @@ if map_data and map_data.get("last_clicked"):
 
 # === Handle Report Submission ===
 click = map_data.get("last_clicked") if map_data else None
+if click:
+    lat, lng = click["lat"], click["lng"]
+    location = f"{lat:.5f}, {lng:.5f}"
+    st.markdown(f"""
+    <div style='background-color:#e8f5e9;padding:12px;border-radius:6px;border:1px solid #c8e6c9'>
+    <strong>📍 Location Selected:</strong><br>
+    <code>{location}</code>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    lat = lng = location = None
+
 if submit:
     if not reporter.strip():
         st.error("Reporter name is required.")
     elif not click:
         st.error("You must select a location on the map.")
     else:
-        lat, lng = click["lat"], click["lng"]
-        location = f"{lat:.5f}, {lng:.5f}"
         before_b64 = base64.b64encode(before_photo.read()).decode("utf-8") if before_photo else ""
         new_row = pd.DataFrame([{
             "reporter": reporter.strip(),
@@ -102,6 +115,9 @@ if submit:
         st.session_state["data"] = data
         save_data(sheet, data)
         st.success("✅ Report submitted!")
+        for key in ["reporter", "location_desc", "notes"]:
+            st.session_state[key] = ""
+        st.session_state["before_photo"] = None
 
 # === Update Section ===
 st.markdown("---")
