@@ -161,6 +161,43 @@ else:
         st.session_state["selected_index"] = None
         st.success("✅ Status updated.")
 
+# === Update Section ===
+st.markdown("---")
+st.markdown("### 🛠️ Update or Remove a Report")
+
+active = data[data["status"] == "Reported"]
+def make_label(row, idx):
+    return f"Report #{idx} | \"{row['location_desc']}\" | Location: {row['location']}"
+
+options = [make_label(row, i) for i, row in active.iterrows()]
+indices = list(active.index)
+default_index = indices.index(st.session_state["selected_index"]) if st.session_state["selected_index"] in indices else 0 if indices else 0
+
+if active.empty:
+    st.info("No active reports to update.")
+else:
+    selected = st.selectbox("Select a report to update:", options, index=default_index)
+    selected_index = int(selected.split('#')[1].split('|')[0].strip())
+    new_status = st.selectbox("Set new status:", ["Reported", "Removed"], index=0)
+
+    remover = ""
+    after_b64 = ""
+    if new_status == "Removed":
+        remover = st.text_input("🧹 Remover's Name (Optional)", value=data.at[selected_index, "remover"])
+        after_photo = st.file_uploader("📷 Upload 'After' Photo (Optional)", type=["jpg", "jpeg", "png"])
+        if after_photo:
+            after_b64 = base64.b64encode(after_photo.read()).decode("utf-8")
+
+    if st.button("🔄 Update Status"):
+        data.at[selected_index, "status"] = new_status
+        data.at[selected_index, "remover"] = remover.strip() if new_status == "Removed" else ""
+        if after_b64:
+            data.at[selected_index, "after_image"] = after_b64
+        st.session_state["data"] = data
+        save_data(sheet, data)
+        st.session_state["selected_index"] = None
+        st.success("✅ Status updated.")
+
 # === History and Stats ===
 st.markdown("---")
 st.markdown("### 📋 All Graffiti Reports (History)")
