@@ -8,6 +8,21 @@ from google.oauth2.service_account import Credentials
 
 # === Page Config and Styling ===
 st.set_page_config(page_title="Graffiti Reporter", layout="wide")
+# Visual debug: highlight all main container elements
+st.markdown("""
+<style>
+/* Highlight container boxes for debugging */
+[data-testid="stVerticalBlock"] {
+    border: 2px dashed red !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+section.main > div {
+    background-color: #fef9e7 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.markdown("""
 <style>
 @media (max-width: 768px) {
