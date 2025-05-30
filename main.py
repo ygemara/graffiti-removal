@@ -117,32 +117,60 @@ with st.container():
 
     map_data = st_folium(m, height=250, width="100%", returned_objects=["last_clicked"])
 
-# ✅ Final Enforced Resize Using JavaScript
 st.markdown("""
 <style>
-.folium-map {
+/* Constrain outer Streamlit block */
+section.main > div > div:has(.folium-map) {
     height: 250px !important;
-    min-height: 250px !important;
     max-height: 250px !important;
+    min-height: 250px !important;
+    padding: 0 !important;
+    margin-bottom: 0 !important;
     overflow: hidden !important;
 }
+
+/* Constrain map container */
+.folium-map {
+    height: 250px !important;
+    max-height: 250px !important;
+    min-height: 250px !important;
+    margin-bottom: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Collapse outer div too (Streamlit-generated) */
+div[data-testid="stVerticalBlock"] > div:has(.folium-map) {
+    height: 250px !important;
+    max-height: 250px !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+}
 </style>
+
 <script>
-const fixMap = () => {
+setTimeout(() => {
   const mapDiv = window.document.querySelector('.folium-map');
   if (mapDiv) {
     mapDiv.style.height = '250px';
+    mapDiv.style.maxHeight = '250px';
+    mapDiv.style.minHeight = '250px';
     mapDiv.style.overflow = 'hidden';
     if (mapDiv.parentElement) {
       mapDiv.parentElement.style.height = '250px';
+      mapDiv.parentElement.style.maxHeight = '250px';
       mapDiv.parentElement.style.overflow = 'hidden';
     }
+    const outer = mapDiv.closest('section.main > div > div');
+    if (outer) {
+      outer.style.height = '250px';
+      outer.style.maxHeight = '250px';
+      outer.style.overflow = 'hidden';
+    }
   }
-};
-window.addEventListener('load', fixMap);
-setTimeout(fixMap, 100);  // Ensure it also runs after initial render
+}, 300);
 </script>
 """, unsafe_allow_html=True)
+
 
 click = map_data.get("last_clicked") if map_data and map_data.get("last_clicked") else None
 
