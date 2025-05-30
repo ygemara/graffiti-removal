@@ -104,9 +104,7 @@ with st.form("report_form", clear_on_submit=True):
 # === 2. Map ===
 st.markdown("### 🗺️ Graffiti Location Map")
 
-col = st.columns([1])[0]
-with col:
-    map_height = 250
+with st.container():
     m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True)
     for i, row in data.iterrows():
         color = "green" if row["status"] == "Removed" else "red"
@@ -117,22 +115,33 @@ with col:
             icon=folium.Icon(color=color)
         ).add_to(m)
 
-    map_data = st_folium(m, height=map_height, width="100%", returned_objects=["last_clicked"])
+    map_data = st_folium(m, height=250, width="100%", returned_objects=["last_clicked"])
 
-# Remove extra spacing around the map column
+# ✅ Final Enforced Resize Using JavaScript
 st.markdown("""
 <style>
-/* Target the column containing the map */
-section.main div[data-testid="column"] {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    margin-bottom: 0 !important;
-}
 .folium-map {
     height: 250px !important;
+    min-height: 250px !important;
     max-height: 250px !important;
+    overflow: hidden !important;
 }
 </style>
+<script>
+const fixMap = () => {
+  const mapDiv = window.document.querySelector('.folium-map');
+  if (mapDiv) {
+    mapDiv.style.height = '250px';
+    mapDiv.style.overflow = 'hidden';
+    if (mapDiv.parentElement) {
+      mapDiv.parentElement.style.height = '250px';
+      mapDiv.parentElement.style.overflow = 'hidden';
+    }
+  }
+};
+window.addEventListener('load', fixMap);
+setTimeout(fixMap, 100);  // Ensure it also runs after initial render
+</script>
 """, unsafe_allow_html=True)
 
 click = map_data.get("last_clicked") if map_data and map_data.get("last_clicked") else None
