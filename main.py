@@ -94,6 +94,7 @@ for i, row in data.iterrows():
     ).add_to(m)
 
 map_data = st_folium(m, height=map_height, width="100%", returned_objects=["last_clicked"])
+st.markdown("<style>.block-container > div:nth-child(2) { margin-bottom: 0 !important; }</style>", unsafe_allow_html=True)
 click = map_data.get("last_clicked") if map_data and map_data.get("last_clicked") else None
 
 if click:
