@@ -102,12 +102,12 @@ with st.form("report_form", clear_on_submit=True):
     submit = st.form_submit_button("🚀 Submit Report")
 
 # === 2. Map ===
-with st.container():
-    st.markdown("### 🗺️ Graffiti Location Map", help="Tap to select a location")
-    
-    map_height = 200
+st.markdown("### 🗺️ Graffiti Location Map")
+
+# Mount with minimal height (temporary shell)
+map_placeholder = st.empty()
+with map_placeholder.container():
     m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
-    
     for i, row in data.iterrows():
         color = "green" if row["status"] == "Removed" else "red"
         folium.Marker(
@@ -117,17 +117,21 @@ with st.container():
             icon=folium.Icon(color=color)
         ).add_to(m)
 
-    map_data = st_folium(m, height=map_height, width="100%", returned_objects=["last_clicked"])
-    
-    # Critical: zero margin around the map block
-    st.markdown("""
-    <style>
-    div[data-testid="stVerticalBlock"] div:has(> .folium-map) {
-        margin-bottom: 0 !important;
-        padding-bottom: 0 !important;
-    }
-    </style>
-    """, unsafe_allow_html=True)
+    map_data = st_folium(m, height=10, width="100%", returned_objects=["last_clicked"])
+
+# Resize using direct Leaflet manipulation
+st.markdown("""
+<script>
+const mapDiv = window.document.querySelectorAll('.folium-map')[0];
+if (mapDiv) {
+    mapDiv.style.height = '250px';
+    mapDiv.style.maxHeight = '250px';
+    mapDiv.style.overflow = 'hidden';
+    mapDiv.closest('div[data-testid="stVerticalBlock"]').style.marginBottom = '0';
+}
+</script>
+""", unsafe_allow_html=True)
+
 
 click = map_data.get("last_clicked") if map_data and map_data.get("last_clicked") else None
 
