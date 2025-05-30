@@ -11,6 +11,13 @@ st.set_page_config(page_title="Graffiti Reporter", layout="wide")
 st.markdown("""
 <style>
 @media (max-width: 768px) {
+    section.main > div { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+}
+</style>
+""", unsafe_allow_html=True)
+st.markdown("""
+<style>
+@media (max-width: 768px) {
     .main .block-container {
         padding-left: 0.5rem;
         padding-right: 0.5rem;
