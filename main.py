@@ -104,33 +104,38 @@ with st.form("report_form", clear_on_submit=True):
 # === 2. Map ===
 st.markdown("### 🗺️ Graffiti Location Map")
 
-# Mount with minimal height (temporary shell)
-map_placeholder = st.empty()
-with map_placeholder.container():
-    m = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True, attributionControl=False)
-    for i, row in data.iterrows():
-        color = "green" if row["status"] == "Removed" else "red"
-        folium.Marker(
-            location=[row["lat"], row["lng"]],
-            tooltip=f"{row['location_desc']} ({row['status']}) by {row['reporter']}",
-            popup=folium.Popup(f"<b>Report #{i}</b><br>{row['notes']}<br><i>{row['location_desc']}</i>", max_width=300),
-            icon=folium.Icon(color=color)
-        ).add_to(m)
+# Create map and embed
+map_html = folium.Map(location=[38.9907, -77.0261], zoom_start=15, control_scale=True)
+for i, row in data.iterrows():
+    color = "green" if row["status"] == "Removed" else "red"
+    folium.Marker(
+        location=[row["lat"], row["lng"]],
+        tooltip=f"{row['location_desc']} ({row['status']}) by {row['reporter']}",
+        popup=folium.Popup(f"<b>Report #{i}</b><br>{row['notes']}<br><i>{row['location_desc']}</i>", max_width=300),
+        icon=folium.Icon(color=color)
+    ).add_to(map_html)
 
-    map_data = st_folium(m, height=10, width="100%", returned_objects=["last_clicked"])
+# Render the map with a fixed height container
+map_data = st_folium(map_html, height=250, width="100%", returned_objects=["last_clicked"])
 
-# Resize using direct Leaflet manipulation
+# 💡 Now collapse excess block height in Streamlit layout
 st.markdown("""
-<script>
-const mapDiv = window.document.querySelectorAll('.folium-map')[0];
-if (mapDiv) {
-    mapDiv.style.height = '250px';
-    mapDiv.style.maxHeight = '250px';
-    mapDiv.style.overflow = 'hidden';
-    mapDiv.closest('div[data-testid="stVerticalBlock"]').style.marginBottom = '0';
+<style>
+/* Remove padding around the map container */
+section.main > div > div:has(.folium-map) {
+    padding-bottom: 0px !important;
+    margin-bottom: 0px !important;
 }
-</script>
+
+/* Force the map size again to be exact */
+.folium-map {
+    height: 250px !important;
+    max-height: 250px !important;
+    min-height: 250px !important;
+}
+</style>
 """, unsafe_allow_html=True)
+
 
 
 click = map_data.get("last_clicked") if map_data and map_data.get("last_clicked") else None
